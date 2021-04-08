@@ -1,137 +1,176 @@
-﻿#include "polinom.h"
-#include <gtest.h>
+﻿#include "gtest.h"
+#include "tables.h"
 
-TEST(TMonom, can_create_empty_monom)
+TEST(Record, can_create_table)
 {
-	ASSERT_NO_THROW(Monom mon);
+	TabRecord* tab;
+	ASSERT_NO_THROW(tab = new TabRecord("1", "a"));
 }
 
-TEST(TMonom, can_create_monom)
+TEST(Record, can_get_key)
 {
-	ASSERT_NO_THROW(Monom mon(1, 345));
+	TabRecord* tab = new TabRecord("1", "ab");
+	string k;
+	ASSERT_NO_THROW(k = tab->GetKey());
 }
 
-TEST(TMonom, throw_when_incorrect_power)
+TEST(Record, can_get_data)
 {
-	ASSERT_ANY_THROW(Monom mon(1, 1000));
+	TabRecord* tab = new TabRecord("2", "abc");
+	char* d;
+	ASSERT_STREQ("abc", tab->GetData());
 }
 
-TEST(TMonom, can_create_copy_monom)
+TEST(Record, get_key_correctly)
 {
-	Monom mon1(1, 345);
-	ASSERT_NO_THROW(Monom mon2(mon1));
+	TabRecord* tab = new TabRecord("1", "abc");
+	string k = tab->GetKey();
+	EXPECT_EQ("1", k);
 }
 
-TEST(TMonom, correct_add_two_monoms)
+TEST(Record, get_data_correctly)
 {
-	Monom mon1(1, 123);
-	Monom mon2(3, 123);
-	Monom mon3(5, 124);
-	ASSERT_NO_THROW(mon1 + mon2);
-	ASSERT_ANY_THROW(mon1 + mon3);
-	EXPECT_EQ((mon1 + mon2).power, 123);
-	EXPECT_EQ((mon1 + mon2).k, 4);
+	TabRecord* tab = new TabRecord("10", "abc");
+	char* d = tab->GetData();
+	ASSERT_STREQ("abc", d);
 }
 
-TEST(TMonom, can_multiply_two_monoms)
+TEST(Record, can_assign)
 {
-	Monom mon1(2, 123);
-	Monom mon2(1, 345);
-	ASSERT_NO_THROW(mon1 * mon2);
+	TabRecord* tab1 = new TabRecord("1", "a");
+	TabRecord* tab2 = new TabRecord("2", "ab");
+	ASSERT_NO_THROW(tab1 = tab2);
 }
 
-TEST(TMonom, correctly_of_multiply_monoms)
+TEST(Record, assign_correctly)
 {
-	Monom mon1(7, 123);
-	Monom mon2(2, 354);
-	EXPECT_EQ((mon1 * mon2).power, 477);
-	EXPECT_EQ((mon1 * mon2).k, 14);
+	TabRecord* tab1 = new TabRecord("1", "abc");
+	TabRecord* tab2 = new TabRecord("7", "def");
+	tab1 = tab2;
+	ASSERT_STREQ("def", tab1->GetData());
 }
 
-TEST(TMonom, throws_then_res_of_multiply_has_incorrect_power)
+TEST(Scantable, can_create_table_by_size)
 {
-	Monom mon1(-2, 911);
-	Monom mon2(3, 245);
-	ASSERT_ANY_THROW(mon1 * mon2);
+	ASSERT_NO_THROW(ScanTable * tab = new ScanTable(4));
 }
 
-TEST(TPolynom, can_create_polynom)
+TEST(Scantable, can_create_table)
 {
-	Monom mon;
-	Node<Monom>* pol = new Node<Monom>(mon, NULL);
-	ASSERT_NO_THROW(Polynom pol1(pol));
+	ASSERT_NO_THROW(ScanTable * tab = new ScanTable());
 }
 
-TEST(TPolynom, can_create_copy_polynom)
+TEST(Scantable, can_copy_table)
 {
-	Monom mon;
-	Node<Monom>* pol = new Node<Monom>(mon, NULL);
-	Polynom pol1(pol);
-	ASSERT_NO_THROW(Polynom pol2(pol1));
+	ScanTable s(2);
+	ASSERT_NO_THROW(ScanTable s1(s));
 }
 
-TEST(TPolynom, can_multiply_monom_with_polynom)
+TEST(Scantable, can_find)
 {
-	Monom mon;
-	Node<Monom>* p = new Node<Monom>(mon, NULL);
-	Polynom pol(p);
-	Polynom res(pol);
-	Monom mon1(1, 123), mon2(7, 354), mon3(4, 511), mon4(7, 477), mon5(4, 634);
-	pol.push_front(mon2);
-	pol.push_front(mon3);
-	res.push_front(mon4);
-	res.push_front(mon5);
-	EXPECT_EQ(mon1 * pol, res);
+	ScanTable* s = new ScanTable();
+	s->Find("2");
+	TabRecord* t;
+	ASSERT_NO_THROW(t = s->Find("2"));
 }
 
-TEST(TPolynom, can_add_two_polynoms)
+TEST(Scantable, can_insert)
 {
-	Monom mon;
-	Node<Monom>* p = new Node<Monom>(mon, NULL);
-	Polynom pol(p);
-	Polynom pol2(pol);
-	Polynom res(pol);
-	Monom mon1(7, 154), mon2(8, 111), mon3(9, 101);
-	pol.push_front(mon1);
-	pol2.push_front(mon2);
-	pol2.push_front(mon3);
-	res.push_front(mon1);
-	res.push_front(mon2);
-	res.push_front(mon3);
-	EXPECT_EQ(pol + pol2, res);
+	ScanTable s(5);
+	ASSERT_NO_THROW(s.Ins("47", "a"));
 }
 
-TEST(TPolynom, can_add_polynoms_with_equal_powers_of_monoms)
+TEST(Scantable, insert_correctly)
 {
-	Monom mon;
-	Node<Monom>* p = new Node<Monom>(mon, NULL);
-	Polynom pol(p);
-	Polynom pol2(pol);
-	Polynom res(pol);
-	Monom mon1(1, 123), mon2(2, 123), mon3(3, 123), mon4(7,789 ), mon5(-3, 789), mon6(4, 789 );
-	pol.push_front(mon1);
-	pol.push_front(mon4);
-	pol2.push_front(mon2);
-	pol2.push_front(mon5);
-	res.push_front(mon3);
-	res.push_front(mon6);
-	EXPECT_EQ(pol + pol2, res);
+	ScanTable s(5);
+	ASSERT_NO_THROW(s.Ins("2", "abcde"));
+	ASSERT_STREQ("abcde", s.Find("2")->GetData());
 }
 
-TEST(TPolynom, can_multiply_two_polynoms)
+TEST(Scantable, insert_correctly_in_too_key)
 {
-	Monom mon;
-	Node<Monom>* p = new Node<Monom>(mon, NULL);
-	Polynom pol(p);
-	Polynom pol2(pol);
-	Polynom res(pol);
-	Monom mon1(2, 211), mon2(3, 213), mon3(7, 134), mon4(1, 132), mon6(17, 345), mon5(2, 343), mon7(21, 347);
-	pol.push_front(mon2);
-	pol.push_front(mon1);
-	pol2.push_front(mon3);
-	pol2.push_front(mon4);
-	res.push_front(mon7);
-	res.push_front(mon6);
-	res.push_front(mon5);
-	EXPECT_EQ(pol * pol2, res);
+	ScanTable* s = new ScanTable(5);
+	s->Ins("1", "a");
+	s->Ins("1", "b");
+	ASSERT_STREQ("b" ,s->Find("1")->GetData());
+}
+
+TEST(Scantable, can_delete)
+{
+	ScanTable* s = new ScanTable(5);
+	s->Ins("1", "a");
+	s->Ins("2", "b");
+	ASSERT_NO_THROW(s->Del("1"));
+}
+
+TEST(Scantable, delete_correctly)
+{
+	ScanTable* s = new ScanTable(5);
+	s->Ins("1", "a");
+	s->Ins("2", "b");
+	s->Del("1");
+	EXPECT_TRUE(s->Find("1") == NULL);
+}
+
+TEST(Sorttable, can_create_table_by_size)
+{
+	ASSERT_NO_THROW(SortTable * tab = new SortTable(5));
+}
+
+TEST(Sorttable, can_create_table)
+{
+	ASSERT_NO_THROW(SortTable * tab = new SortTable());
+}
+
+TEST(Sorttable, can_copy_table)
+{
+	SortTable s(2);
+	ASSERT_NO_THROW(SortTable s1(s));
+}
+
+TEST(Sorttable, can_find)
+{
+	SortTable* s = new SortTable();
+	s->Find("1");
+	s->Find("5");
+	TabRecord* t;
+	ASSERT_NO_THROW(t = s->Find("5"));
+}
+
+TEST(Sorttable, can_insert)
+{
+	SortTable s(5);
+	ASSERT_NO_THROW(s.Ins("3", "abc"));
+}
+
+TEST(Sorttable, insert_correctly)
+{
+	SortTable s(5);
+	ASSERT_NO_THROW(s.Ins("3", "abc"));
+	ASSERT_STREQ("abc",s.Find("3")->GetData());
+}
+
+TEST(Sorttable, insert_correctly_in_too_key)
+{
+	SortTable* s = new SortTable(5);
+	s->Ins("1", "a");
+	s->Ins("1", "b");
+	ASSERT_STREQ("b",s->Find("1")->GetData());
+}
+
+TEST(Sorttable, can_delete)
+{
+	SortTable* s = new SortTable(5);
+	s->Ins("1", "a");
+	s->Ins("2", "b");
+	ASSERT_NO_THROW(s->Del("1"));
+}
+
+TEST(Sorttable, delete_correctly)
+{
+	SortTable* s = new SortTable(5);
+	s->Ins("1", "a");
+	s->Ins("2", "b");
+	s->Del("1");
+	EXPECT_TRUE(s->Find("1") == NULL);
 }
