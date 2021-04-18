@@ -36,6 +36,7 @@ public:
 	virtual TabRecord* Find(TKey) = 0;
 	virtual void Ins(TKey, TData*) = 0;
 	virtual void Del(TKey) = 0;
+	friend class SortTable;
 	virtual int Reset()
 	{
 		pos = 0;
@@ -87,6 +88,10 @@ ScanTable::ScanTable(const ScanTable& tab)
 
 ScanTable::~ScanTable()
 {
+	for (int i = 0;i< count; i++)
+	{
+		delete (rec[i]);
+	}
 	delete[] rec;
 }
 
@@ -130,19 +135,25 @@ void ScanTable::Del(TKey k)
 	}
 }
 
-class SortTable : public ScanTable
+class SortTable : public Table
 {
+protected:
+	TabRecord** rec;
 public:
 	void SortData();
 public:
-	SortTable(int tabsize = TabMaxSize) : ScanTable(tabsize) {}
-	SortTable(const ScanTable&);
+	SortTable(int tabsize = TabMaxSize);
+	SortTable(const SortTable&);
 	virtual TabRecord* Find(TKey);
 	virtual void Ins(TKey, TData*);
 	virtual void Del(TKey);
 };
 
-SortTable::SortTable(const ScanTable& tab)
+SortTable::SortTable(int tabsize) : Table(tabsize) {
+	rec = new TabRecord * [tabsize];
+}
+
+SortTable::SortTable(const SortTable& tab)
 {
 	size = tab.size;
 	count = tab.count;
@@ -184,13 +195,14 @@ TabRecord* SortTable::Find(TKey key)
 
 void SortTable::Ins(TKey k, TData* d)
 {
-	if (IsFull())
+	if (IsFull() || rec == nullptr)
 		return;
 	Find(k);
 	for (int i = count; i > pos; i--)
 		rec[i] = rec[i - 1];
 	count++;
 	efficiency++;
+	if (rec[pos] != nullptr) 
 	rec[pos] = new TabRecord(k, d);
 	SortData();
 }
