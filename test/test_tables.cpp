@@ -1,6 +1,6 @@
 ﻿#include "gtest.h"
 #include "tables.h"
-
+#include <crtdbg.h>
 TEST(Record, can_create_table)
 {
 	TabRecord* tab;
@@ -173,4 +173,42 @@ TEST(Sorttable, delete_correctly)
 	s->Ins("2", "b");
 	s->Del("1");
 	EXPECT_TRUE(s->Find("1") == NULL);
+}
+TEST(ArrayHashTable, can_create_table)
+{
+	ASSERT_NO_THROW(Table * ht = new ArrayHash(5, 2));
+}
+
+TEST(ArrayHashTable, can_find)
+{
+	ArrayHash* ht = new ArrayHash(5, 2);
+	ht->Ins("1", "b");
+	ASSERT_NO_THROW(ht->Find("1"));
+}
+
+TEST(ArrayHashTable, can_insert)
+{
+	ArrayHash* ht = new ArrayHash(5, 2);
+	ASSERT_NO_THROW(ht->Ins("1", "b"));
+}
+
+TEST(ArrayHashTable, can_remove)
+{
+	ArrayHash* ht = new ArrayHash(5, 2);
+	ht->Ins("1", "b");
+	ASSERT_NO_THROW(ht->Del("1"));
+}
+
+TEST(ArrayHashTable, can_reset)
+{
+	ArrayHash* ht = new ArrayHash(5, 2);
+	ht->Ins("1", "b");
+	ASSERT_NO_THROW(ht->Reset());
+}
+
+TEST(ArrayHashTable, can_get_next)
+{
+	ArrayHash* ht = new ArrayHash(5, 2);
+	ht->Ins("1", "b");
+	ASSERT_NO_THROW(ht->GoNext());
 }

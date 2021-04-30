@@ -232,3 +232,159 @@ void SortTable::SortData()
 			if (rec[i]->GetKey() > rec[j]->GetKey())
 				swap(rec[i], rec[j]);
 }
+
+#define TabHashStep 5
+
+class HashTable : public Table
+{
+protected:
+	virtual unsigned long HashFunc(const TKey key);
+public:
+	HashTable() :Table() {}
+};
+
+class ArrayHash : public HashTable
+{
+protected:
+	TabRecord** rec;    // память для записей таблицы
+	int tabsize;        // макс. возможное кол-во записей
+	int freepos;        // первая своб. строка, обнаруженная при поиске
+	int hashstep;       // шаг вторичного перемешивания
+	TabRecord* mark;    // маркер для индикации строк с удалёнными записями
+	// функция открытого перемешивания
+	int GetNextPos(int pos) { return (pos + hashstep) % tabsize; }
+public:
+	ArrayHash(int s = TabMaxSize, int step = TabHashStep);
+	~ArrayHash();
+	// информационное поле 
+	virtual int isFull() const { return count >= tabsize; }
+	// основные методы
+	virtual TabRecord* Find(TKey);
+	virtual void Ins(TKey, TData*);
+	virtual void Del(TKey);
+	// навигация
+	virtual int Reset();
+	virtual int IsTabEnded();
+	virtual int GoNext();
+	friend ostream& operator<< (ostream& os, ArrayHash& tab)
+	{
+		setlocale(LC_ALL, "Rus");
+		os << "Печать таблицы: " << endl;
+		os << "+----------------------------------------------------" << endl;
+		for (tab.Reset(); !tab.IsTabEnded(); tab.GoNext())
+		{
+			os << "|\tКлюч: " << tab.rec[tab.pos]->GetKey()
+				<< " Данные: " << tab.rec[tab.pos]->GetData(); os << endl;
+		}
+		os << "+----------------------------------------------------" << endl << endl;
+		return os;
+	}
+};
+
+unsigned long HashTable::HashFunc(const TKey key)
+{
+	unsigned long hashval = 0;
+	int len = key.length();
+	for (int i = 0; i < len; i++)
+		hashval = (hashval << 3) + key[i];
+	return hashval;
+}
+
+ArrayHash::ArrayHash(int s, int step) : HashTable()
+{
+	rec = new TabRecord * [s];
+	for (int i = 0; i < s; i++)
+	{
+		rec[i] = NULL;
+	}
+	tabsize = s;
+	hashstep = step;
+	mark = new TabRecord(string(""), NULL);
+}
+
+ArrayHash::~ArrayHash()
+{
+	for (int i = 0; i < tabsize; i++)
+	{
+		if (rec[i] != NULL && rec[i] != mark)
+			delete rec[i];
+	}
+	delete[]rec;
+	delete mark;
+}
+
+TabRecord* ArrayHash::Find(TKey k)
+{
+	TabRecord* tmp = NULL;
+	freepos = -1;
+	efficiency = 0;
+	pos = HashFunc(k) % tabsize;
+	for (int i = 0; i < tabsize; i++)
+	{
+		efficiency++;
+		if (rec[pos] == NULL) break; // свободная строка - завершаем поиск
+		else if ((rec[pos] == mark) && (freepos == -1)) // пустая строка - запоминаем первую
+			freepos = pos;
+		if (rec[pos]->key == k) // нашли ключ
+		{
+			tmp = rec[pos];
+			break;
+		}
+		pos = GetNextPos(pos); // открытое перемешивание
+	}
+	if (freepos != -1)
+		pos = freepos;
+	return tmp;
+}
+
+void ArrayHash::Ins(TKey k, TData* d)
+{
+	if (IsFull()) return;
+	if (Find(k) == NULL)
+	{
+		rec[pos] = new TabRecord(k, d);
+		count++;
+		efficiency++;
+	}
+}
+
+void ArrayHash::Del(TKey k)
+{
+	if (Find(k) == NULL)
+		return;
+	delete rec[pos];
+	rec[pos] = mark;
+	efficiency++;
+	count--;
+}
+
+int ArrayHash::Reset()
+{
+	pos = 0;
+	while (!IsTabEnded())
+	{
+		if (rec[pos] != NULL && rec[pos] != mark)
+			break;
+		else pos++;
+	}
+	return IsTabEnded();
+
+}
+
+int ArrayHash::IsTabEnded()
+{
+	return count == tabsize;
+}
+
+int ArrayHash::GoNext()
+{
+	if (!IsTabEnded())
+	{
+		while (++pos < tabsize)
+		{
+			if (rec[pos] != NULL && rec[pos] != mark)
+				break;
+		}
+	}
+	return IsTabEnded();
+}
