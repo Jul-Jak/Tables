@@ -88,7 +88,7 @@ ScanTable::ScanTable(const ScanTable& tab)
 
 ScanTable::~ScanTable()
 {
-	for (int i = 0;i< count; i++)
+	for (int i = 0; i < count; i++)
 	{
 		delete (rec[i]);
 	}
@@ -202,8 +202,8 @@ void SortTable::Ins(TKey k, TData* d)
 		rec[i] = rec[i - 1];
 	count++;
 	efficiency++;
-	if (rec[pos] != nullptr) 
-	rec[pos] = new TabRecord(k, d);
+	if (rec[pos] != nullptr)
+		rec[pos] = new TabRecord(k, d);
 	SortData();
 }
 
@@ -387,4 +387,186 @@ int ArrayHash::GoNext()
 		}
 	}
 	return IsTabEnded();
+}
+
+#include <stack>
+
+
+class TreeNode : public TabRecord
+{
+public:
+	TreeNode* left, * right;
+public:
+	TreeNode(TKey k = "", TData* d = NULL, TreeNode* l = NULL, TreeNode* r = NULL)
+		: TabRecord(k, d), left(l), right(r) {}
+	~TreeNode() {}
+	TreeNode* GetLeft() const { return left; }
+	TreeNode* GetRight() const { return right; }
+	friend class TreeTable;
+};
+
+class TreeTable : public Table
+{
+public:
+	TreeNode* root;   // указатель на корень дерева
+	TreeNode** ref;   // адрес указателя на вершину-результата в Find
+	TreeNode* curr;    // указатель на текущую вершину
+	int curpos;      // номер текущей вершины
+	stack<TreeNode*> st;  // стек для итератора
+	void PrintTreeTab(TreeNode* node);
+public:
+	TreeTable() : Table() { curpos = 0; root = curr = NULL; ref = NULL; }
+	~TreeTable() {}
+	virtual int isFull() const;
+	//  основные методы
+	virtual TabRecord* Find(TKey);
+	virtual void Ins(TKey, TData*);
+	virtual void Del(TKey);
+	// навигация
+	virtual int Reset();
+	virtual int IsTabEnded();
+	virtual int GoNext();
+	// печать таблицы
+	friend ostream& operator<< (ostream& os, TreeTable& tab);
+};
+
+
+int TreeTable::isFull() const
+{
+	try {
+		TreeNode* tmp = new TreeNode;
+	}
+	catch (std::bad_alloc)
+	{
+		return true;
+	}
+	return false;
+}
+
+TabRecord* TreeTable::Find(TKey k)
+{
+	TreeNode* node = root;
+	ref = &root;
+	curr = NULL;
+	efficiency = 0;
+	while (node != NULL)
+	{
+		efficiency++;
+		if (node->key == k) break;
+		if (node->key < k)
+		{
+			curr = *ref;
+			ref = &node->right;
+		}
+		else 
+		{
+			curr = *ref;
+			ref = &node->left;
+		}
+		node = *ref;
+		}
+		if (node == NULL) return NULL;
+		TabRecord* tmp = new TabRecord(node->key, node->data);
+		return tmp;
+}
+
+void TreeTable::Ins(TKey k, TData* d)
+{
+	if (isFull()) return;
+	efficiency++;
+	if (Find(k) == NULL)
+	{
+		count++;
+		if (curr)
+		{
+			if (curr->GetKey() < k)
+			{
+				curr->right = new TreeNode(k, d);
+
+			}
+			else
+				curr->left = new TreeNode(k, d);
+		}
+		else
+			root = new TreeNode(k, d);
+	}
+}
+
+void TreeTable::Del(TKey k)
+{
+	if (root == NULL) return;
+	if (Find(k) != NULL)
+	{
+		TreeNode* node = *ref;
+		if ((*ref)->left != NULL || (*ref)->right != NULL)
+		{
+			if ((*ref)->left == NULL)
+				*ref = (*ref)->right;
+			else if ((*ref)->right == NULL)
+				*ref = (*ref)->left;
+			else
+			{
+				TreeNode** tmp = &((*ref)->left);
+				node = *tmp;
+				while ((*tmp)->right != NULL)
+				{
+					tmp = &((*tmp)->right);
+					efficiency++;
+					node = *tmp;
+				}
+				*tmp = (*tmp)->left;
+			}
+		}
+		else
+			*ref = NULL;
+		delete node;
+		count--;
+	}
+}
+
+int TreeTable::Reset()
+{
+	TreeNode* node = curr = root;
+	while (!st.empty()) st.pop();
+	curpos = 0;
+	while (node != NULL)
+	{
+		st.push(node);
+		curr = node;
+		node = node->GetLeft();
+	}
+	return IsTabEnded();
+}
+
+int TreeTable::IsTabEnded()
+{
+	return curpos >= count;
+}
+
+int TreeTable::GoNext()
+{
+	if (curr != NULL)
+	{
+		pos++;
+		curr = curr->right;
+		while (curr != NULL)
+		{
+			st.push(curr);
+			curr = curr->left;
+		}
+		if (!st.empty())
+		{
+			curr = st.top();
+			st.pop();
+		}
+	}
+	return IsTabEnded();
+}
+
+void TreeTable::PrintTreeTab(TreeNode* node)
+{
+	if (node == NULL) return;
+	cout << node->data << " ";
+	PrintTreeTab(node->left);
+	PrintTreeTab(node->right);
 }
