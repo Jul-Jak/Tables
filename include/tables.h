@@ -1,348 +1,572 @@
 ﻿#pragma once
 #include <iostream>
+#include <locale>
+#include <string>
 
 using namespace std;
 
-template <class T>
-class Node {
-public:
-	T data;
-	Node<T>* next;
-	Node(T value, Node* next_) : data(value), next(next_) {}
+typedef std::string TKey;
+typedef char TData;
+
+const int TabMaxSize = 100;
+
+struct TabRecord
+{
+	TKey key;      // ключ
+	TData* data;   // указатель на значение
+	TabRecord(TKey k = "", TData* d = NULL) : key(k), data(d) {}
+	TKey GetKey() { return key; }
+	TData* GetData() { return data; }
+	TabRecord& operator=(const TabRecord& t) { key = t.key; data = t.data; return *this; }
+	bool operator==(const TabRecord& t) const { return key == t.key && data == t.data; }
 };
 
-template<class T>
-class List {
+class Table
+{
 protected:
-	Node<T>* head;
-	int size;
+	int size;        // размер
+	int count;       // к-во записей
+	int pos;         // позиция
+	int efficiency;  // эффективность
 public:
-	class iterator {
-	private:
-		Node<T>* ptr;
-	public:
-		iterator(Node<T>* ptr_) : ptr(ptr_) {}
-		iterator(const iterator& iter) : ptr(iter.ptr) {}
-		Node<T>& operator*()	{	return *ptr;	}
-		Node<T>*& get_iter()	{	return ptr;	}
-		Node<T>* operator->()	{	return ptr;	}
-		iterator operator++()
+	Table(int s = TabMaxSize) : count(0), pos(0), efficiency(0), size(s) {}
+	virtual ~Table() {}
+	bool IsEmpty() const { return count == 0; }
+	bool IsFull() const { return count == size; }
+	virtual TabRecord* Find(TKey) = 0;
+	virtual void Ins(TKey, TData*) = 0;
+	virtual void Del(TKey) = 0;
+	friend class SortTable;
+	virtual int Reset()
+	{
+		pos = 0;
+		return IsTabEnded();
+	}
+	virtual int IsTabEnded() const { return pos >= count; }
+	virtual int GoNext()
+	{
+		if (!IsTabEnded()) pos++;
+		return IsTabEnded();
+	}
+};
+
+class ScanTable : public Table
+{
+protected:
+	TabRecord** rec;
+public:
+	ScanTable(int size = TabMaxSize);
+	ScanTable(const ScanTable&);
+	virtual ~ScanTable();
+	virtual TabRecord* Find(TKey);
+	virtual void Ins(TKey, TData*);
+	virtual void Del(TKey);
+	friend class SortTable;
+};
+
+ScanTable::ScanTable(int size) : Table(size)
+{
+	rec = new TabRecord * [size];
+	for (int i = 0; i < size; i++)
+	{
+		rec[i] = NULL;
+	}
+}
+
+ScanTable::ScanTable(const ScanTable& tab)
+{
+	size = tab.size;
+	count = tab.count;
+	pos = tab.pos;
+	efficiency = tab.efficiency;
+	rec = new TabRecord * [size];
+	for (int i = 0; i < count; i++)
+	{
+		rec[i] = tab.rec[i];
+	}
+}
+
+ScanTable::~ScanTable()
+{
+	for (int i = 0; i < count; i++)
+	{
+		delete (rec[i]);
+	}
+	delete[] rec;
+}
+
+TabRecord* ScanTable::Find(TKey k)
+{
+	int i;
+	for (i = 0; i < count; i++)
+		if (rec[i]->GetKey() == k)
 		{
-			ptr = ptr->next;
-			return (*this);
+			pos = i;
+			return rec[i];
 		}
-		bool operator==(iterator iter)
+	efficiency = i;
+	return NULL;
+}
+
+void ScanTable::Ins(TKey k, TData* d)
+{
+	if (Find(k) != NULL)
+	{
+		Find(k)->data = d;
+		return;
+	}
+	if (!IsFull())
+	{
+		rec[count++] = new TabRecord(k, d);
+		efficiency++;
+	}
+}
+
+void ScanTable::Del(TKey k)
+{
+	if (!IsEmpty())
+	{
+		if (Find(k) != NULL)
 		{
-			return (ptr == iter.ptr);
+			delete rec[pos];
+			rec[pos] = rec[--count];
+			efficiency++;
 		}
-		bool operator !=(iterator iter)
+	}
+}
+
+class SortTable : public Table
+{
+protected:
+	TabRecord** rec;
+public:
+	void SortData();
+public:
+	SortTable(int tabsize = TabMaxSize);
+	SortTable(const SortTable&);
+	virtual TabRecord* Find(TKey);
+	virtual void Ins(TKey, TData*);
+	virtual void Del(TKey);
+};
+
+SortTable::SortTable(int tabsize) : Table(tabsize) {
+	rec = new TabRecord * [tabsize];
+}
+
+SortTable::SortTable(const SortTable& tab)
+{
+	size = tab.size;
+	count = tab.count;
+	pos = 0;
+	rec = new TabRecord * [size];
+	for (int i = 0; i < count; i++)
+		rec[i] = new TabRecord(tab.rec[i]->GetKey(), tab.rec[i]->GetData());
+	SortData();
+}
+
+TabRecord* SortTable::Find(TKey key)
+{
+	int i = 0, i1 = 0, i2 = count - 1;
+	efficiency = 0;
+	TabRecord* rez = NULL;
+	while (i1 <= i2)
+	{
+		i = (i1 + i2) / 2;
+		if (rec[i]->key == key)
 		{
-			return !(*this == iter);
+			i1 = i + 1;
+			i2 = i;
+			rez = rec[i];
 		}
-	};
-
-	iterator begin() const
-	{
-		iterator iter(head);
-		return iter;
-	}
-
-	iterator end() const
-	{
-		iterator iter(head);
-		return iter;
-	}
-	List(Node<T>* p)
-	{
-		head = p;
-		head->next = head;
-		size = 0;
-	}
-
-	List(const List& list)
-	{
-		Node<T>* p = new Node<T>(list.get_head()->data, NULL);
-		head = p;
-		head->next = head;
-		size = 0;
-		iterator it1 = begin();
-		iterator it2 = list.begin()->next;
-		while (it2 != list.end())
+		else if (key > rec[i]->key)
 		{
-			insert(it2->data, it1.get_iter());
-			++it1;
-			++it2;
+			i1 = i + 1;
 		}
+		else
+		{
+			i2 = i - 1;
+		}
+		efficiency++;
 	}
+	pos = i;
+	return rez;
+}
 
-	void Clear()
-	{
-		while (head->next != head)	pop_front();
-		size = 0;
-	}
 
-	~List()
-	{
-		Clear();
-	}
+void SortTable::Ins(TKey k, TData* d)
+{
+	if (IsFull() || rec == nullptr)
+		return;
+	Find(k);
+	for (int i = count; i > pos; i--)
+		rec[i] = rec[i - 1];
+	count++;
+	efficiency++;
+	if (rec[pos] != nullptr)
+		rec[pos] = new TabRecord(k, d);
+	SortData();
+}
 
-	Node<T>* get_head() const
+void SortTable::Del(TKey k)
+{
+	if (!IsEmpty())
 	{
-		return head;
-	}
-
-	bool operator==(const List& lst) const
-	{
-		iterator it1 = begin();
-		iterator it2 = lst.begin();
-		bool point = 1;
-		if (size != lst.get_size()) return 0;
-		else {
-			do
+		Find(k);
+		if (rec != NULL)
+		{
+			delete rec[pos];
+			for (int i = pos; i < count - 1; i++)
 			{
-				if (it1->data != it2->data)
-				{
-					point = 0;
-					break;
-				}
-				else
-				{
-					++it1;
-					++it2;
-				}
-			} while (it1 != end());
+				rec[i] = rec[i + 1];
+				efficiency++;
+			}
+			count--;
 		}
-		return point;
 	}
+}
 
-	List& operator=(const List& lst)
+void SortTable::SortData()
+{
+	for (int i = 0; i < count; i++)
+		for (int j = i + 1; j < count; j++)
+			if (rec[i]->GetKey() > rec[j]->GetKey())
+				swap(rec[i], rec[j]);
+}
+
+#define TabHashStep 5
+
+class HashTable : public Table
+{
+protected:
+	virtual unsigned long HashFunc(const TKey key);
+public:
+	HashTable() :Table() {}
+};
+
+class ArrayHash : public HashTable
+{
+protected:
+	TabRecord** rec;    // память для записей таблицы
+	int tabsize;        // макс. возможное кол-во записей
+	int freepos;        // первая своб. строка, обнаруженная при поиске
+	int hashstep;       // шаг вторичного перемешивания
+	TabRecord* mark;    // маркер для индикации строк с удалёнными записями
+	// функция открытого перемешивания
+	int GetNextPos(int pos) { return (pos + hashstep) % tabsize; }
+public:
+	ArrayHash(int s = TabMaxSize, int step = TabHashStep);
+	~ArrayHash();
+	// информационное поле 
+	virtual int isFull() const { return count >= tabsize; }
+	// основные методы
+	virtual TabRecord* Find(TKey);
+	virtual void Ins(TKey, TData*);
+	virtual void Del(TKey);
+	// навигация
+	virtual int Reset();
+	virtual int IsTabEnded();
+	virtual int GoNext();
+	friend ostream& operator<< (ostream& os, ArrayHash& tab)
 	{
-		if (*this == lst) return (*this);
-		else {
-			this->Clear();
-			iterator it1 = begin();
-			iterator it2 = lst.begin()->next;
-			while (it2 != lst.end())
+		setlocale(LC_ALL, "Rus");
+		os << "Печать таблицы: " << endl;
+		os << "+----------------------------------------------------" << endl;
+		for (tab.Reset(); !tab.IsTabEnded(); tab.GoNext())
+		{
+			os << "|\tКлюч: " << tab.rec[tab.pos]->GetKey()
+				<< " Данные: " << tab.rec[tab.pos]->GetData(); os << endl;
+		}
+		os << "+----------------------------------------------------" << endl << endl;
+		return os;
+	}
+};
+
+unsigned long HashTable::HashFunc(const TKey key)
+{
+	unsigned long hashval = 0;
+	int len = key.length();
+	for (int i = 0; i < len; i++)
+		hashval = (hashval << 3) + key[i];
+	return hashval;
+}
+
+ArrayHash::ArrayHash(int s, int step) : HashTable()
+{
+	rec = new TabRecord * [s];
+	for (int i = 0; i < s; i++)
+	{
+		rec[i] = NULL;
+	}
+	tabsize = s;
+	hashstep = step;
+	mark = new TabRecord(string(""), NULL);
+}
+
+ArrayHash::~ArrayHash()
+{
+	for (int i = 0; i < tabsize; i++)
+	{
+		if (rec[i] != NULL && rec[i] != mark)
+			delete rec[i];
+	}
+	delete[]rec;
+	delete mark;
+}
+
+TabRecord* ArrayHash::Find(TKey k)
+{
+	TabRecord* tmp = NULL;
+	freepos = -1;
+	efficiency = 0;
+	pos = HashFunc(k) % tabsize;
+	for (int i = 0; i < tabsize; i++)
+	{
+		efficiency++;
+		if (rec[pos] == NULL) break; // свободная строка - завершаем поиск
+		else if ((rec[pos] == mark) && (freepos == -1)) // пустая строка - запоминаем первую
+			freepos = pos;
+		if (rec[pos]->key == k) // нашли ключ
+		{
+			tmp = rec[pos];
+			break;
+		}
+		pos = GetNextPos(pos); // открытое перемешивание
+	}
+	if (freepos != -1)
+		pos = freepos;
+	return tmp;
+}
+
+void ArrayHash::Ins(TKey k, TData* d)
+{
+	if (IsFull()) return;
+	if (Find(k) == NULL)
+	{
+		rec[pos] = new TabRecord(k, d);
+		count++;
+		efficiency++;
+	}
+}
+
+void ArrayHash::Del(TKey k)
+{
+	if (Find(k) == NULL)
+		return;
+	delete rec[pos];
+	rec[pos] = mark;
+	efficiency++;
+	count--;
+}
+
+int ArrayHash::Reset()
+{
+	pos = 0;
+	while (!IsTabEnded())
+	{
+		if (rec[pos] != NULL && rec[pos] != mark)
+			break;
+		else pos++;
+	}
+	return IsTabEnded();
+
+}
+
+int ArrayHash::IsTabEnded()
+{
+	return count == tabsize;
+}
+
+int ArrayHash::GoNext()
+{
+	if (!IsTabEnded())
+	{
+		while (++pos < tabsize)
+		{
+			if (rec[pos] != NULL && rec[pos] != mark)
+				break;
+		}
+	}
+	return IsTabEnded();
+}
+
+#include <stack>
+
+
+class TreeNode : public TabRecord
+{
+public:
+	TreeNode* left, * right;
+public:
+	TreeNode(TKey k = "", TData* d = NULL, TreeNode* l = NULL, TreeNode* r = NULL)
+		: TabRecord(k, d), left(l), right(r) {}
+	~TreeNode() {}
+	TreeNode* GetLeft() const { return left; }
+	TreeNode* GetRight() const { return right; }
+	friend class TreeTable;
+};
+
+class TreeTable : public Table
+{
+public:
+	TreeNode* root;   // указатель на корень дерева
+	TreeNode** ref;   // адрес указателя на вершину-результата в Find
+	TreeNode* curr;    // указатель на текущую вершину
+	int curpos;      // номер текущей вершины
+	stack<TreeNode*> st;  // стек для итератора
+	void PrintTreeTab(TreeNode* node);
+public:
+	TreeTable() : Table() { curpos = 0; root = curr = NULL; ref = NULL; }
+	~TreeTable() {}
+	virtual int isFull() const;
+	//  основные методы
+	virtual TabRecord* Find(TKey);
+	virtual void Ins(TKey, TData*);
+	virtual void Del(TKey);
+	// навигация
+	virtual int Reset();
+	virtual int IsTabEnded();
+	virtual int GoNext();
+	// печать таблицы
+	friend ostream& operator<< (ostream& os, TreeTable& tab);
+};
+
+
+int TreeTable::isFull() const
+{
+	try {
+		TreeNode* tmp = new TreeNode;
+	}
+	catch (std::bad_alloc)
+	{
+		return true;
+	}
+	return false;
+}
+
+TabRecord* TreeTable::Find(TKey k)
+{
+	TreeNode* node = root;
+	ref = &root;
+	curr = NULL;
+	efficiency = 0;
+	while (node != NULL)
+	{
+		efficiency++;
+		if (node->key == k) break;
+		if (node->key < k)
+		{
+			curr = *ref;
+			ref = &node->right;
+		}
+		else 
+		{
+			curr = *ref;
+			ref = &node->left;
+		}
+		node = *ref;
+		}
+		if (node == NULL) return NULL;
+		TabRecord* tmp = new TabRecord(node->key, node->data);
+		return tmp;
+}
+
+void TreeTable::Ins(TKey k, TData* d)
+{
+	if (isFull()) return;
+	efficiency++;
+	if (Find(k) == NULL)
+	{
+		count++;
+		if (curr)
+		{
+			if (curr->GetKey() < k)
 			{
-				insert(it2->data, it1.get_iter());
-				++it1;
-				++it2;
+				curr->right = new TreeNode(k, d);
+
+			}
+			else
+				curr->left = new TreeNode(k, d);
+		}
+		else
+			root = new TreeNode(k, d);
+	}
+}
+
+void TreeTable::Del(TKey k)
+{
+	if (root == NULL) return;
+	if (Find(k) != NULL)
+	{
+		TreeNode* node = *ref;
+		if ((*ref)->left != NULL || (*ref)->right != NULL)
+		{
+			if ((*ref)->left == NULL)
+				*ref = (*ref)->right;
+			else if ((*ref)->right == NULL)
+				*ref = (*ref)->left;
+			else
+			{
+				TreeNode** tmp = &((*ref)->left);
+				node = *tmp;
+				while ((*tmp)->right != NULL)
+				{
+					tmp = &((*tmp)->right);
+					efficiency++;
+					node = *tmp;
+				}
+				*tmp = (*tmp)->left;
 			}
 		}
-		return (*this);
+		else
+			*ref = NULL;
+		delete node;
+		count--;
 	}
+}
 
-	int get_size() const	{	return size;	}
-
-	void push_front(T elem)
+int TreeTable::Reset()
+{
+	TreeNode* node = curr = root;
+	while (!st.empty()) st.pop();
+	curpos = 0;
+	while (node != NULL)
 	{
-		Node<T>* p = new Node<T>(elem, head->next);
-		head->next = p;
-		size++;
+		st.push(node);
+		curr = node;
+		node = node->GetLeft();
 	}
+	return IsTabEnded();
+}
 
-	void insert(T elem, Node<T>* nod)
-	{
-		Node<T>* p = new Node<T>(elem, nod->next);
-		nod->next = p;
-		size++;
-	}
+int TreeTable::IsTabEnded()
+{
+	return curpos >= count;
+}
 
-	void pop_front()
+int TreeTable::GoNext()
+{
+	if (curr != NULL)
 	{
-		if (!size) throw "Empty list";
-		Node<T>* p = head->next;
-		head->next = p->next;
-		delete p;
-		size--;
-	}
-};
-
-class Polynom;
-class Monom {
-public:
-	double k;
-	int power;
-	Monom(double coeff = 0, int pow = -1);
-	Monom(const Monom& a);
-	int Power_x () const {	return (power / 100);	}
-	int Power_y() const	{	return ((power / 10) % 10);	}
-	int Power_z() const	{	return (power % 10);	}
-	bool Correctly_power();
-	bool operator ==(const Monom& monom_);
-	bool operator !=(const Monom& monom_);
-	Monom operator+(const Monom& monom_);
-	Monom operator* (const Monom& monom_);
-	Polynom Monom::operator* (const Polynom& polynom_);
-	friend std::ostream& operator<<(std::ostream& os, const Monom& monom_)
-	{
-		os << monom_.k << " " << monom_.power;
-		return os;
-	}
-};
-
-class Polynom : public List<Monom> {
-public:
-	Polynom(Node<Monom>* p);
-	Polynom(const Polynom& polynom_);
-	~Polynom();
-	Polynom operator+ (const Polynom& polynom_);
-	Polynom operator* (const Polynom& polynom_);
-	friend std::ostream& operator<<(std::ostream& os, const Polynom& polynom_)
-	{
-		Polynom::iterator it = polynom_.begin()->next;
-		while (it != polynom_.end())
+		pos++;
+		curr = curr->right;
+		while (curr != NULL)
 		{
-			os << "+" << it->data;
-			++it;
+			st.push(curr);
+			curr = curr->left;
 		}
-		return os;
-	}
-};
-
-Monom::Monom(double coeff, int power_)
-{
-	k = coeff;
-	power = power_;
-	if (!Correctly_power()) throw "Incorrect power!";
-}
-
-Monom::Monom(const Monom& monom_)
-{
-	k = monom_.k;
-	power = monom_.power;
-}
-
-bool Monom::Correctly_power()
-{
-	return ((Power_x() < 10) && (Power_y() < 10) && (Power_z() < 10));
-}
-
-bool Monom:: operator ==(const Monom& monom_)
-{
-	return ((monom_.power == power) && (monom_.k == k));
-}
-
-bool Monom:: operator !=(const Monom& monom_)
-{
-	return !(*this == monom_);
-}
-
-Monom Monom::operator+(const Monom& monom_)
-{
-	Monom res;
-	if (monom_.power != power) throw "Different powers in monoms!";
-	else {
-		res.k = monom_.k + k;
-		res.power = power;
-		return res;
-	}	
-}
-
-Monom Monom::operator* (const Monom& monom_)
-{
-	Monom res;
-	if (((Power_x() + monom_.Power_x()) < 10) && ((Power_y() + monom_.Power_y()) < 10) && ((Power_z() + monom_.Power_z() < 10)))
-	{
-		res.k = monom_.k * k;
-		res.power = monom_.power + power;
-		return res;
-	}
-	else throw "Incorrect power in result!";
-}
-
-Polynom Monom::operator* (const Polynom& pol)
-{
-	Monom m;
-	Node<Monom>* p = new Node<Monom>(m, nullptr);
-	p->next = p;
-	Polynom res(p);
-	Polynom::iterator it1 = pol.begin()->next;
-	Polynom::iterator it2 = res.begin();
-	while (it1 != pol.end())
-	{
-		res.insert((*this) * (it1->data), it2.get_iter());
-		++it1;
-		++it2;
-		if (!Correctly_power()) throw "Incorrect power!";
-	}
-	return res;
-}
-
-Polynom::Polynom(Node<Monom>* p) :List<Monom>(p) {}
-
-Polynom::Polynom(const Polynom& polynom_) : List<Monom>(polynom_) {}
-
-Polynom::~Polynom()
-{
-	Clear();
-}
-
-Polynom Polynom::operator+ (const Polynom& polynom_)
-{
-	Monom monom_;
-	Node<Monom>* p = new Node<Monom>(monom_, NULL);
-	p->next = p;
-	Polynom res(p);
-	Polynom::iterator it1 = begin()->next;
-	Polynom::iterator it2 = polynom_.begin()->next;
-	Polynom::iterator it3 = res.begin();
-	while ((it1 != end()) && (it2 != polynom_.end()))
-	{
-		if ((it1->data.power) < (it2->data.power))
+		if (!st.empty())
 		{
-			res.insert(it1->data, it3.get_iter());
-			++it1;
-			++it3;
-		}
-		else if ((it2->data.power) < (it1->data.power))
-		{
-			res.insert(it2->data, it3.get_iter());
-			++it2;
-			++it3;
-		}
-		else if ((it2->data.power) == (it1->data.power))
-		{
-			res.insert((it1->data + it2->data), it3.get_iter());
-			++it1;
-			++it2;
-			++it3;
+			curr = st.top();
+			st.pop();
 		}
 	}
-	if (it1 == end())
-	{
-		while (it2 != polynom_.end())
-		{
-			res.insert(it2->data, it3.get_iter());
-			++it2;
-			++it3;
-		}
-	}
-	else
-	{
-		while (it1 != end())
-		{
-			res.insert(it1->data, it3.get_iter());
-			++it1;
-			++it3;
-		}
-	}
-	return res;
+	return IsTabEnded();
 }
 
-Polynom Polynom::operator* (const Polynom& polynom_)
+void TreeTable::PrintTreeTab(TreeNode* node)
 {
-	Monom monom_;
-	Node<Monom>* p = new Node<Monom>(monom_, NULL);
-	p->next = p;
-	Polynom res(p);
-	Polynom pol2(res);
-	Polynom::iterator it1 = begin()->next;
-	while (it1 != end())
-	{
-		pol2 = (it1->data) * polynom_;
-		res = res + pol2;
-		++it1;
-	}
-	return res;
+	if (node == NULL) return;
+	cout << node->data << " ";
+	PrintTreeTab(node->left);
+	PrintTreeTab(node->right);
 }
